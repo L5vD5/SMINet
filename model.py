@@ -4,44 +4,83 @@ import torch
 import torch.functional as F
 from utils.pyart import *
 
+class PRjoint(nn.Module):
+    def __init__(self,Trackbool):
+        super(PRjoint, self).__init__()
+        self.Trackbool = Trackbool
 
-class POELayer(nn.Module):
-    def __init__(self, branchLs):
-        super(POELayer, self).__init__()
-
-        self.branchLS = branchLs
-        n_joint = len(branchLs)
-
-        self.twist = nn.Parameter(torch.Tensor(n_joint,6))
-        self.twist.data.uniform_(-1,1)
-
-        for joint in range(n_joint):
-            setattr(self,'branch'+str(joint)+'_p',nn.Parameter(torch.Tensor(1,3).uniform_(-1,1)) )
-            setattr(self,'branch'+str(joint)+'_rpy',nn.Parameter(torch.Tensor(1,3).uniform_(-1,1)) )
+        self.p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
+        self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
         
+        if Trackbool:
+            self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
 
-    def forward(self, q_value):
-        branchLs = self.branchLS
+    def forward(self,rev_q, pri_q):
+        T_offset = pr2t(self.p_offset, rpy2r(self.rpy_offset))
+
+        R= rodrigues(self.rev_axis,rev_q)
+        p= torch.outer(pri_q,self.pri_axis)
+        p = (R@p.unsqueeze(-1)).squeeze(-1)
+        
+        T = pr2t(p,R)
+
+        if not(self.Trackbool):
+            return T_offset, T
+
+        T_track = pr2t(self.p_track,rpy2r(self.rpy_track))
+
+        return T_offset, T, T_track
+        
+class TransformLayer(nn.Module):
+    def __init__(self,branchLs):
+        super(TransformLayer, self).__init__()
+
+        self.branchLs = branchLs
         n_joint = len(branchLs)
-        batch_size = q_value.size()[0]
-        device = q_value.device
-        out = torch.tile(torch.eye(4),(batch_size,1,1)).to(device)
-        Twistls = torch.zeros([batch_size,n_joint,6]).to(device)
 
-        outs = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
         for joint in range(n_joint):
-            twist = self.twist[joint,:]
-            Twistls[:,joint,:] = inv_x(t2x(out))@twist
-            out = out @ srodrigues(twist, q_value[:,joint])
+            Trackbool = branchLs[joint]
+            setattr(self,'joint_'+str(joint+1), PRjoint(Trackbool))
+
+    def forward(self,rev_q_value,pri_q_value):
+        assert rev_q_value.size() == pri_q_value.size()
+        
+        branchLs = self.branchLs
+        n_joint = len(branchLs)
+        batch_size = rev_q_value.size()[0]
+        device = rev_q_value.device
+        out = torch.tile(torch.eye(4),(batch_size,1,1)).to(device)
+        
+        TrackingSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
+        JointSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
+
+        for joint in range(n_joint):
+            rev_q = rev_q_value[:,joint]
+            pri_q = pri_q_value[:,joint]
+            
+            twist = getattr(self,'joint_'+str(joint+1))
 
             if branchLs[joint]:
-                p = getattr(self,'branch'+str(joint)+'_p')
-                rpy = getattr(self,'branch'+str(joint)+'_rpy')
-                r = rpy2r(rpy)
-                out_temp = out @ pr2t(p, r)
-                outs = torch.cat((outs,out_temp.unsqueeze(1)), dim=1)
+                T_offset, T,T_track = twist(rev_q,pri_q)
+                out = out @ T_offset
+                JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
+                out = out@T
 
-        return outs,Twistls
+                out_temp = out@T_track
+                TrackingSE3 = torch.cat((TrackingSE3,out_temp.unsqueeze(1)), dim=1)
+                
+            
+            else:
+                T_offset, T = twist(rev_q,pri_q)
+                out = out @ T_offset
+                JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
+                out = out @ T
+        
+        return TrackingSE3, JointSE3
+
 
 class q_layer(nn.Module):
     def __init__(self,branchLs,inputdim,n_layers=7):
