@@ -1,2 +1,2 @@
-# SMInet
-Soft Model Identification Network
+# POENet-2d
+POENet for 2-dimensional input
