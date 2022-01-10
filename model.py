@@ -85,6 +85,7 @@ class TransformLayer(nn.Module):
 class q_layer(nn.Module):
     def __init__(self,branchLs,inputdim,n_layers=7):
         super(q_layer, self).__init__()
+        self.branchLs = branchLs
         n_joint = len(branchLs)
         
         LayerList = []
@@ -94,13 +95,13 @@ class q_layer(nn.Module):
             LayerList.append(layer)
             inputdim = inputdim * 2
 
-        for _ in range(n_layers-3):
+        for _ in range(n_layers-1):
             layer = nn.Linear(inputdim,inputdim//2)
             torch.nn.init.xavier_uniform_(layer.weight)
             LayerList.append(layer)
             inputdim = inputdim // 2
 
-        layer = nn.Linear(inputdim,n_joint)
+        layer = nn.Linear(inputdim,2*n_joint)
         torch.nn.init.xavier_uniform_(layer.weight)
         LayerList.append(layer)
 
@@ -108,26 +109,31 @@ class q_layer(nn.Module):
         
 
     def forward(self, motor_control):
+        branchLs = self.branchLs
+        n_joint = len(branchLs)
+
         out =motor_control
         
         for layer in self.layers:
             out = layer(out)
             out = torch.nn.LeakyReLU()(out)
-    
-        q_value = out
-        return q_value
+
+        rev_q_value = out[:,:n_joint]
+        pri_q_value = out[:,n_joint:]
+
+        return rev_q_value, pri_q_value
 
 class Model(nn.Module):
     def __init__(self, branchLs, inputdim):
         super(Model,self).__init__()
         self.q_layer = q_layer(branchLs, inputdim)
-        self.poe_layer = POELayer(branchLs)
+        self.trans_layer = TransformLayer(branchLs)
 
     def forward(self, motor_control):
-        out = self.q_layer(motor_control)
-        SE3,_ = self.poe_layer(out)
+        rev_q_value, pri_q_value = self.q_layer(motor_control)
+        TrackingSE3, JointSE3 = self.trans_layer(rev_q_value, pri_q_value)
 
-        return SE3
+        return TrackingSE3, JointSE3 
 
 
 
