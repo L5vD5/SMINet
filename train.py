@@ -22,42 +22,48 @@ np.random.seed(SEED)
 random.seed(SEED)
 
 def train_epoch(model, optimizer, input, label,Loss_Fn, args):
-    q_value = model.q_layer(input)
-    q_loss = q_entropy(torch.abs(q_value))
-    q_loss = torch.mean(q_loss,dim=0)
-    total_loss = - args.q_entropy * q_loss 
+    rev_q_value, pri_q_value = model.q_layer(input)
 
-    output, Twistls = model.poe_layer(q_value)
-    loss = Loss_Fn(output,label)
+    #uncomment below
+    # q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
+    # q_loss = torch.mean(q_loss,dim=0)
+    # q_loss = - args.q_entropy * q_loss 
+    q_loss = 0
+
+    TrackingSE3, JointSE3  = model.trans_layer(rev_q_value, pri_q_value)
+    loss = Loss_Fn(TrackingSE3,label)
+
+    #uncomment below
     # regularizer_loss = args.Twist_norm * Twist_norm(model)
     # regularizer_loss = regularizer_loss + args.Twist2point * Twist2point(Twistls,label)
     regularizer_loss = 0
-    total_loss = total_loss + loss + regularizer_loss
+    total_loss = q_loss + loss + regularizer_loss
     
     optimizer.zero_grad()
     total_loss.backward()
     optimizer.step()
 
-    return total_loss
+    return total_loss,q_loss,regularizer_loss
 
 def test_epoch(model, input, label, Loss_Fn, args):
-    q_value = model.q_layer(input)
-    q_loss = q_entropy(torch.abs(q_value))
-    q_loss = torch.mean(q_loss,dim=0)
-    q_loss = args.q_entropy * q_loss
+    rev_q_value, pri_q_value = model.q_layer(input)
 
-    output,Twistls = model.poe_layer(q_value)
-    # Twist2pointloss = args.Twist2point * Twist2point(Twistls,label)
-    Twist2pointloss = 0
-    
-    loss = Loss_Fn(output,label)
+    #uncomment below
+    # q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
+    # q_loss = torch.mean(q_loss,dim=0)
+    # q_loss = - args.q_entropy * q_loss 
+    q_loss = 0
+
+    TrackingSE3, JointSE3 = model.trans_layer(rev_q_value, pri_q_value)
+    loss = Loss_Fn(TrackingSE3,label)
+
+    #uncomment below
     # regularizer_loss = args.Twist_norm * Twist_norm(model)
+    # regularizer_loss = regularizer_loss + args.Twist2point * Twist2point(Twistls,label)
     regularizer_loss = 0
-    
+    total_loss = q_loss + loss + regularizer_loss
 
-    total_loss = loss + regularizer_loss
-
-    return total_loss,q_loss,Twist2pointloss
+    return total_loss,q_loss,regularizer_loss
 
 def main(args):
     #set logger
@@ -109,12 +115,17 @@ def main(args):
         # Train
         model.train()
         data_length = len(train_data_loader)
+        train_loss = np.array([])
         for iterate, (input,label) in enumerate(train_data_loader):
             input = input.to(device)
             label = label.to(device)
-            train_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
-            print('Epoch:{}, TrainLoss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,train_loss,100*iterate/data_length), end='\r')
-        print('Epoch:{}, TrainLoss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,train_loss,100*iterate/data_length))
+            total_loss,q_loss,regularizer_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
+            total_loss = total_loss.detach().cpu().numpy()
+            train_loss = np.append(train_loss, total_loss)
+            print('Epoch:{}, TrainLoss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,total_loss,100*iterate/data_length), end='\r')
+        
+        train_loss = train_loss.mean()
+        print('TrainLoss:{:.2f}'.format(train_loss))
         
         #Evaluate
         model.eval()
@@ -123,7 +134,7 @@ def main(args):
         for iterate, (input,label) in enumerate(test_data_loader):
             input = input.to(device)
             label = label.to(device)
-            total_loss,q_loss,Twist2pointloss = test_epoch(model, input, label, Loss_Fn, args)
+            total_loss,q_loss,regularizer_loss = test_epoch(model, input, label, Loss_Fn, args)
             total_loss = total_loss.detach().cpu().numpy()
             test_loss = np.append(test_loss, total_loss)
             print('Testing...{:.2f} Epoch:{}, Progress:{:.2f}%'.format(total_loss,epoch+1,100*iterate/data_length) , end='\r')
@@ -143,7 +154,7 @@ def main(args):
         # Log to wandb
         if args.wandb:
             wandb.log({'TrainLoss':train_loss, 'TestLoss':test_loss, 'TimePerEpoch':avg_time,
-            'q_entropy':q_loss,'Twist2point':Twist2pointloss},step = epoch+1)
+            'q_entropy':q_loss,'regularizer_loss':regularizer_loss},step = epoch+1)
 
         #save model 
         if (epoch+1) % args.save_period==0:
