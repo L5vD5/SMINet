@@ -61,10 +61,10 @@ class TransformLayer(nn.Module):
             rev_q = rev_q_value[:,joint]
             pri_q = pri_q_value[:,joint]
             
-            twist = getattr(self,'joint_'+str(joint+1))
+            PRset = getattr(self,'joint_'+str(joint+1))
 
             if branchLs[joint]:
-                T_offset, T,T_track = twist(rev_q,pri_q)
+                T_offset, T,T_track = PRset(rev_q,pri_q)
                 out = out @ T_offset
                 JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
                 out = out@T
@@ -74,7 +74,7 @@ class TransformLayer(nn.Module):
                 
             
             else:
-                T_offset, T = twist(rev_q,pri_q)
+                T_offset, T = PRset(rev_q,pri_q)
                 out = out @ T_offset
                 JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
                 out = out @ T
