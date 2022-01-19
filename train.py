@@ -30,7 +30,7 @@ def train_epoch(model, optimizer, input, label,Loss_Fn, args):
     # q_loss = - args.q_entropy * q_loss 
     q_loss = 0
 
-    TrackingSE3, JointSE3  = model.trans_layer(rev_q_value, pri_q_value)
+    TrackingSE3, RevSE3, PriSE3  = model.trans_layer(rev_q_value, pri_q_value)
     loss = Loss_Fn(TrackingSE3,label)
 
     #uncomment below
@@ -54,7 +54,7 @@ def test_epoch(model, input, label, Loss_Fn, args):
     # q_loss = - args.q_entropy * q_loss 
     q_loss = 0
 
-    TrackingSE3, JointSE3 = model.trans_layer(rev_q_value, pri_q_value)
+    TrackingSE3, RevSE3, PriSE3 = model.trans_layer(rev_q_value, pri_q_value)
     loss = Loss_Fn(TrackingSE3,label)
 
     #uncomment below
@@ -208,13 +208,13 @@ if __name__ == '__main__':
     #                 help='number of n_Scence to early stop')
     args.add_argument('--save_period', default= 1, type=int,
                     help='number of scenes after which model is saved')
-    args.add_argument('--pname', default= 'POE2D-1230',type=str,
+    args.add_argument('--pname', default= 'SMINet',type=str,
                     help='Project name')
     args.add_argument('--Foldstart', default= 0, type=int,
                     help='Number of Fold to start')
     args.add_argument('--Foldend', default= 8, type=int,
                     help='Number of Fole to end')
-    args.add_argument("--branchNum", nargs="+", default= [3,3,3,3,3])
+    args.add_argument("--branchNum", nargs="+", default= [0,0,1,0,0])
     args = args.parse_args()
     main(args)
 #%%

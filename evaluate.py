@@ -28,36 +28,22 @@ def main(args):
     test_data_loader = ToyDataloader(args.data_path, n_workers = 1, batch = 1, shuffle=False)
 
     # get jointAngle.txt
-    jointAngle = np.array([]).reshape(-1,n_joint)
+    revAngle = np.array([]).reshape(-1,n_joint)
+    priAngle = np.array([]).reshape(-1,n_joint)
     for input,_ in test_data_loader:
         
-        jointAngle_temp = model.q_layer(input)
-        jointAngle_temp = jointAngle_temp.detach().cpu().numpy()
-        jointAngle = np.vstack((jointAngle,jointAngle_temp))
-    np.savetxt(args.save_dir+"/jointAngle.txt", jointAngle)
+        rev_q_value, pri_q_value = model.q_layer(input)
 
-    # get jointTwist.txt
-    jointTwist = np.array([]).reshape(-1,6)
-    twists = model.poe_layer.twist
-    for twist in twists:
-        twist = twist.detach().cpu().numpy()
-        jointTwist = np.vstack((jointTwist,twist))
-    np.savetxt(args.save_dir+'/jointTwist.txt',jointTwist)
+        rev_q_value = rev_q_value.detach().cpu().numpy()
+        pri_q_value = pri_q_value.detach().cpu().numpy()
+
+        revAngle = np.vstack((revAngle,rev_q_value))
+        priAngle = np.vstack((priAngle,pri_q_value))
+    np.savetxt(args.save_dir+"/revAngle.txt", revAngle)
+    np.savetxt(args.save_dir+"/priAngle.txt", priAngle)
 
     # get branchLs
     np.savetxt(args.save_dir+'/branchLs.txt',branchLs)
-
-    # get joint offset
-    jointOffset = np.array([]).reshape(-1,6)
-    for joint in range(n_joint):
-        branchnameP = 'branch'+str(joint)+'_p'
-        branchnameRPY = 'branch'+str(joint)+'_rpy'
-        p = getattr(model.poe_layer,branchnameP).detach().cpu().numpy()[0]
-        rpy = getattr(model.poe_layer,branchnameRPY).detach().cpu().numpy()[0]
-        combined = np.concatenate((p,rpy))
-        jointOffset = np.vstack((jointOffset,combined))
-    np.savetxt(args.save_dir+'/jointOffset.txt',jointTwist)
-
 
     # get targetPose.txt
     targetPose = test_data_loader.dataset.label
@@ -67,7 +53,7 @@ def main(args):
     # get outputPose.txt
     outputPose = np.array([]).reshape(-1,targetPose.shape[1])
     for input,_ in test_data_loader:
-        outputPose_temp = model(input)
+        outputPose_temp,_ = model(input)
         outputPose_temp = outputPose_temp[:,:,0:3,3]
         outputPose_temp = outputPose_temp.reshape(-1,outputPose_temp.size()[1]*outputPose_temp.size()[2])
         outputPose_temp = outputPose_temp.detach().cpu().numpy()[0]
@@ -81,7 +67,7 @@ if __name__ == '__main__':
     args.add_argument('--data_path', \
         default= './data/Multi_2dim_log_spiral/fold9/Multi_2dim_log_spiral_910.txt',type=str, \
             help='path to model checkpoint')    
-    args.add_argument('--checkpoint', default= './output/1230/checkpoint_40.pth',type=str,
+    args.add_argument('--checkpoint', default= './output/0118/checkpoint_20.pth',type=str,
                     help='path to model checkpoint')
     args.add_argument('--save_dir', default='./2Visualize')
     args = args.parse_args()

@@ -9,8 +9,10 @@ class PRjoint(nn.Module):
         super(PRjoint, self).__init__()
         self.Trackbool = Trackbool
 
-        self.p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-        self.rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.rev_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.rev_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.pri_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.pri_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
         self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
         self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
         
@@ -19,20 +21,27 @@ class PRjoint(nn.Module):
             self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
 
     def forward(self,rev_q, pri_q):
-        T_offset = pr2t(self.p_offset, rpy2r(self.rpy_offset))
+        batch_size = rev_q.size()[0]
+        device = rev_q.device
+
+        rev_T_offset = pr2t(self.rev_p_offset, rpy2r(self.rev_rpy_offset))
+        pri_T_offset = pr2t(self.pri_p_offset, rpy2r(self.pri_rpy_offset))
 
         R= rodrigues(self.rev_axis,rev_q)
-        p= torch.outer(pri_q,self.pri_axis)
-        p = (R@p.unsqueeze(-1)).squeeze(-1)
+        p = torch.zeros(batch_size,3).to(device)
+        rev_T = pr2t(p,R)
         
-        T = pr2t(p,R)
+        R = torch.tile(torch.eye(3),(batch_size,1,1)).to(device)
+        p = torch.outer(pri_q,self.pri_axis)
+        
+        pri_T = pr2t(p,R)
 
         if not(self.Trackbool):
-            return T_offset, T
+            return rev_T_offset, pri_T_offset, rev_T, pri_T
 
         T_track = pr2t(self.p_track,rpy2r(self.rpy_track))
 
-        return T_offset, T, T_track
+        return rev_T_offset, pri_T_offset, rev_T, pri_T, T_track
         
 class TransformLayer(nn.Module):
     def __init__(self,branchLs):
@@ -55,7 +64,8 @@ class TransformLayer(nn.Module):
         out = torch.tile(torch.eye(4),(batch_size,1,1)).to(device)
         
         TrackingSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
-        JointSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
+        RevSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
+        PriSE3 = torch.tensor([]).reshape(batch_size,-1,4,4).to(device)
 
         for joint in range(n_joint):
             rev_q = rev_q_value[:,joint]
@@ -64,22 +74,24 @@ class TransformLayer(nn.Module):
             PRset = getattr(self,'joint_'+str(joint+1))
 
             if branchLs[joint]:
-                T_offset, T,T_track = PRset(rev_q,pri_q)
-                out = out @ T_offset
-                JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
-                out = out@T
+                rev_T_offset, pri_T_offset, rev_T, pri_T, T_track = PRset(rev_q,pri_q)
+                out = out @ rev_T_offset @ rev_T
+                RevSE3 = torch.cat((RevSE3,out.unsqueeze(1)), dim=1)
+                out = out@ pri_T_offset @ pri_T
+                PriSE3 = torch.cat((PriSE3,out.unsqueeze(1)), dim=1)
 
                 out_temp = out@T_track
                 TrackingSE3 = torch.cat((TrackingSE3,out_temp.unsqueeze(1)), dim=1)
                 
             
             else:
-                T_offset, T = PRset(rev_q,pri_q)
-                out = out @ T_offset
-                JointSE3 = torch.cat((JointSE3,out.unsqueeze(1)), dim=1)
-                out = out @ T
+                rev_T_offset, pri_T_offset, rev_T, pri_T = PRset(rev_q,pri_q)
+                out = out @ rev_T_offset @ rev_T
+                RevSE3 = torch.cat((RevSE3,out.unsqueeze(1)), dim=1)
+                out = out@ pri_T_offset @ pri_T
+                PriSE3 = torch.cat((PriSE3,out.unsqueeze(1)), dim=1)
         
-        return TrackingSE3, JointSE3
+        return TrackingSE3, RevSE3, PriSE3
 
 
 class q_layer(nn.Module):
@@ -131,9 +143,9 @@ class Model(nn.Module):
 
     def forward(self, motor_control):
         rev_q_value, pri_q_value = self.q_layer(motor_control)
-        TrackingSE3, JointSE3 = self.trans_layer(rev_q_value, pri_q_value)
+        TrackingSE3, RevSE3, PriSE3 = self.trans_layer(rev_q_value, pri_q_value)
 
-        return TrackingSE3, JointSE3 
+        return TrackingSE3, RevSE3, PriSE3
 
 
 
