@@ -10,7 +10,7 @@ import random
 from pathlib import Path
 import wandb
 import time
-from utils.pyart import bnum2ls
+from utils.pyart import *
 
 # fix random seeds for reproducibility
 SEED = 1
@@ -21,14 +21,48 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 random.seed(SEED)
 
+def get_q_loss(rev_q_value,pri_q_value,args):
+    q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
+    q_loss = torch.mean(q_loss,dim=0)
+    q_loss = - args.q_entropy * q_loss 
+
+    return q_loss
+
+def get_VecLoss(branchLs, TrackingSE3, RevSE3, PriSE3):
+    batch_size = TrackingSE3.size()[0]
+    device = TrackingSE3.device
+
+    Loss = torch.tensor(0).to(torch.float).to(device)
+    currJoint = 1
+    prev_tar = torch.tensor([[0,0,0]]).to(torch.float).to(device)
+    prev_pri_p = torch.tensor([[0,0,0]]).to(torch.float).to(device)
+    prev_rev_p = torch.tensor([[0,0,0]]).to(torch.float).to(device)
+
+    targetNums = TrackingSE3.size()[1]
+    for targetNum in range(targetNums):
+        curr_tar = t2p(TrackingSE3[:,targetNum])
+        vec_tar = curr_tar - prev_tar
+        freeJnum = branchNum[targetNum]
+        for joint in range(currJoint,currJoint+freeJnum+1):
+            rev_p = t2p(RevSE3[:,joint-1])
+            vec = (rev_p - prev_pri_p)
+            Loss = Loss + VecLoss(vec_tar,vec)
+            prev_rev_p = rev_p
+
+            pri_p = t2p(PriSE3[:,joint-1])
+            vec = (pri_p - prev_rev_p)
+            Loss = Loss + VecLoss(vec_tar,vec)
+            prev_pri_p = pri_p
+
+            currJoint = currJoint + 1
+    
+    return Loss
+            
+    
 def train_epoch(model, optimizer, input, label,Loss_Fn, args):
     rev_q_value, pri_q_value = model.q_layer(input)
 
-    #uncomment below
-    # q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
-    # q_loss = torch.mean(q_loss,dim=0)
-    # q_loss = - args.q_entropy * q_loss 
-    q_loss = 0
+    q_loss = get_q_loss(rev_q_value,pri_q_value,args)
 
     TrackingSE3, RevSE3, PriSE3  = model.trans_layer(rev_q_value, pri_q_value)
     loss = Loss_Fn(TrackingSE3,label)
@@ -48,11 +82,7 @@ def train_epoch(model, optimizer, input, label,Loss_Fn, args):
 def test_epoch(model, input, label, Loss_Fn, args):
     rev_q_value, pri_q_value = model.q_layer(input)
 
-    #uncomment below
-    # q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
-    # q_loss = torch.mean(q_loss,dim=0)
-    # q_loss = - args.q_entropy * q_loss 
-    q_loss = 0
+    q_loss = get_q_loss(rev_q_value,pri_q_value,args)
 
     TrackingSE3, RevSE3, PriSE3 = model.trans_layer(rev_q_value, pri_q_value)
     loss = Loss_Fn(TrackingSE3,label)
@@ -214,7 +244,7 @@ if __name__ == '__main__':
                     help='Number of Fold to start')
     args.add_argument('--Foldend', default= 8, type=int,
                     help='Number of Fole to end')
-    args.add_argument("--branchNum", nargs="+", default= [0,0,1,0,0])
+    args.add_argument("--branchNum", nargs="+", default= [3,3,3,3,3])
     args = args.parse_args()
     main(args)
 #%%
