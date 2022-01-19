@@ -136,8 +136,10 @@ class q_layer(nn.Module):
         return rev_q_value, pri_q_value
 
 class Model(nn.Module):
-    def __init__(self, branchLs, inputdim):
+    def __init__(self, branchNum, inputdim):
         super(Model,self).__init__()
+        self.branchNum = branchNum
+        branchLs = bnum2ls(branchNum)
         self.q_layer = q_layer(branchLs, inputdim)
         self.trans_layer = TransformLayer(branchLs)
 
