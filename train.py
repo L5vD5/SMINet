@@ -21,18 +21,17 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 random.seed(SEED)
 
-def get_q_loss(rev_q_value,pri_q_value,args):
+def get_q_loss(rev_q_value,pri_q_value):
     q_loss = q_entropy(torch.abs(rev_q_value)) + q_entropy(torch.abs(pri_q_value))
     q_loss = torch.mean(q_loss,dim=0)
-    q_loss = - args.q_entropy * q_loss 
 
     return q_loss
 
-def get_VecLoss(branchLs, TrackingSE3, RevSE3, PriSE3):
+def get_VecLoss(branchNum, TrackingSE3, RevSE3, PriSE3):
     batch_size = TrackingSE3.size()[0]
     device = TrackingSE3.device
 
-    Loss = torch.tensor(0).to(torch.float).to(device)
+    Vec_loss = torch.tensor(0).to(torch.float).to(device)
     currJoint = 1
     prev_tar = torch.tensor([[0,0,0]]).to(torch.float).to(device)
     prev_pri_p = torch.tensor([[0,0,0]]).to(torch.float).to(device)
@@ -46,54 +45,67 @@ def get_VecLoss(branchLs, TrackingSE3, RevSE3, PriSE3):
         for joint in range(currJoint,currJoint+freeJnum+1):
             rev_p = t2p(RevSE3[:,joint-1])
             vec = (rev_p - prev_pri_p)
-            Loss = Loss + VecLoss(vec_tar,vec)
+            Vec_loss = Vec_loss + VecLoss(vec_tar,vec)
             prev_rev_p = rev_p
 
             pri_p = t2p(PriSE3[:,joint-1])
             vec = (pri_p - prev_rev_p)
-            Loss = Loss + VecLoss(vec_tar,vec)
+            Vec_loss = Vec_loss + VecLoss(vec_tar,vec)
             prev_pri_p = pri_p
 
             currJoint = currJoint + 1
     
-    return Loss
+    return -Vec_loss
             
     
 def train_epoch(model, optimizer, input, label,Loss_Fn, args):
+    # forward model
     rev_q_value, pri_q_value = model.q_layer(input)
-
-    q_loss = get_q_loss(rev_q_value,pri_q_value,args)
-
     TrackingSE3, RevSE3, PriSE3  = model.trans_layer(rev_q_value, pri_q_value)
-    loss = Loss_Fn(TrackingSE3,label)
+    
+    # get Pos_loss
+    Pos_loss = Loss_Fn(TrackingSE3,label)
 
-    #uncomment below
-    # regularizer_loss = args.Twist_norm * Twist_norm(model)
-    # regularizer_loss = regularizer_loss + args.Twist2point * Twist2point(Twistls,label)
-    regularizer_loss = 0
-    total_loss = q_loss + loss + regularizer_loss
+    # get q_loss
+    q_loss = get_q_loss(rev_q_value,pri_q_value)
+    q_loss =  args.q_entropy * q_loss
+
+    # get Vec_loss
+    branchNum = model.branchNum
+    Vec_loss =  get_VecLoss(branchNum, TrackingSE3, RevSE3, PriSE3)
+    Vec_loss = args.Vec_loss * Vec_loss 
+
+    # sum regularizer_loss
+    regularizer_loss = q_loss + Vec_loss
+
+    # sum total loss
+    total_loss = Pos_loss + regularizer_loss
     
     optimizer.zero_grad()
     total_loss.backward()
     optimizer.step()
 
-    return total_loss,q_loss,regularizer_loss
+    return Pos_loss,q_loss,Vec_loss
 
 def test_epoch(model, input, label, Loss_Fn, args):
+    # forward model
     rev_q_value, pri_q_value = model.q_layer(input)
+    TrackingSE3, RevSE3, PriSE3  = model.trans_layer(rev_q_value, pri_q_value)
+    
+    # get Pos_loss
+    Pos_loss = Loss_Fn(TrackingSE3,label)
 
-    q_loss = get_q_loss(rev_q_value,pri_q_value,args)
+    # get q_loss
+    q_loss = get_q_loss(rev_q_value,pri_q_value)
+    q_loss =  args.q_entropy * q_loss
 
-    TrackingSE3, RevSE3, PriSE3 = model.trans_layer(rev_q_value, pri_q_value)
-    loss = Loss_Fn(TrackingSE3,label)
+    # get Vec_loss
+    branchNum = model.branchNum
+    Vec_loss =  get_VecLoss(branchNum, TrackingSE3, RevSE3, PriSE3)
+    Vec_loss = args.Vec_loss * Vec_loss 
 
-    #uncomment below
-    # regularizer_loss = args.Twist_norm * Twist_norm(model)
-    # regularizer_loss = regularizer_loss + args.Twist2point * Twist2point(Twistls,label)
-    regularizer_loss = 0
-    total_loss = q_loss + loss + regularizer_loss
 
-    return total_loss,q_loss,regularizer_loss
+    return Pos_loss,q_loss,Vec_loss
 
 def main(args):
     #set logger
@@ -105,10 +117,8 @@ def main(args):
     device = torch.device('cuda:0')
     torch.cuda.set_device(device)
 
-    branchLs = bnum2ls(args.branchNum)
-
     #set model
-    model = Model(branchLs, args.input_dim)
+    model = Model(args.branchNum, args.input_dim)
     model = model.to(device)
 
     #load weight when requested
@@ -149,10 +159,10 @@ def main(args):
         for iterate, (input,label) in enumerate(train_data_loader):
             input = input.to(device)
             label = label.to(device)
-            total_loss,q_loss,regularizer_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
-            total_loss = total_loss.detach().cpu().numpy()
-            train_loss = np.append(train_loss, total_loss)
-            print('Epoch:{}, TrainLoss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,total_loss,100*iterate/data_length), end='\r')
+            Pos_loss,q_loss,Vec_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
+            total_loss = Pos_loss + q_loss + Vec_loss
+            train_loss = np.append(train_loss, total_loss.detach().cpu().numpy())
+            print('Epoch:{}, Pos_loss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,Pos_loss,100*iterate/data_length), end='\r')
         
         train_loss = train_loss.mean()
         print('TrainLoss:{:.2f}'.format(train_loss))
@@ -161,15 +171,27 @@ def main(args):
         model.eval()
         data_length = len(test_data_loader)
         test_loss = np.array([])
+        avg_Pos_loss = np.array([])
+        avg_q_loss = np.array([])
+        avg_Vec_loss = np.array([])
         for iterate, (input,label) in enumerate(test_data_loader):
             input = input.to(device)
             label = label.to(device)
-            total_loss,q_loss,regularizer_loss = test_epoch(model, input, label, Loss_Fn, args)
-            total_loss = total_loss.detach().cpu().numpy()
-            test_loss = np.append(test_loss, total_loss)
-            print('Testing...{:.2f} Epoch:{}, Progress:{:.2f}%'.format(total_loss,epoch+1,100*iterate/data_length) , end='\r')
+            Pos_loss,q_loss,Vec_loss = test_epoch(model, input, label, Loss_Fn, args)
+            total_loss = Pos_loss + q_loss + Vec_loss
+
+            # metric to plot
+            test_loss = np.append(test_loss, total_loss.detach().cpu().numpy())
+            avg_Pos_loss = np.append(avg_Pos_loss, Pos_loss.detach().cpu().numpy())
+            avg_q_loss = np.append(avg_q_loss, q_loss.detach().cpu().numpy())
+            avg_Vec_loss = np.append(avg_Vec_loss, Vec_loss.detach().cpu().numpy())
+            
+            print('Testing...{:.2f} Epoch:{}, Progress:{:.2f}%'.format(Pos_loss,epoch+1,100*iterate/data_length) , end='\r')
         
         test_loss = test_loss.mean()
+        avg_Pos_loss = avg_Pos_loss.mean()
+        avg_q_loss = avg_q_loss.mean()
+        avg_Vec_loss = avg_Vec_loss.mean()
         print('TestLoss:{:.2f}'.format(test_loss))
 
         # Timer end    
@@ -184,7 +206,7 @@ def main(args):
         # Log to wandb
         if args.wandb:
             wandb.log({'TrainLoss':train_loss, 'TestLoss':test_loss, 'TimePerEpoch':avg_time,
-            'q_entropy':q_loss,'regularizer_loss':regularizer_loss},step = epoch+1)
+            'avg_Pos_loss':avg_Pos_loss, 'q_entropy':avg_q_loss,'Vec_loss':avg_Vec_loss},step = epoch+1)
 
         #save model 
         if (epoch+1) % args.save_period==0:
@@ -221,14 +243,10 @@ if __name__ == '__main__':
     #                 help='optimizer option')
     args.add_argument('--loss_function', default= 'Pos_norm2', type=str,
                     help='get list of loss function')
-    args.add_argument('--Twist_norm', default= 0.01, type=float,
+    args.add_argument('--Vec_loss', default= 0.0001, type=float,
                     help='Coefficient for TwistNorm')
     args.add_argument('--q_entropy', default= 0.01, type=float,
                     help='Coefficient for q_entropy')
-    args.add_argument('--Twist2point', default= 0.01, type=float,
-                    help='Coefficient for Twist2point')
-    args.add_argument('--Twist2Twist', default= 0.1, type=float,
-                    help='Coefficient for Twist2point')
     args.add_argument('--wandb', action = 'store_true', help = 'Use wandb to log')
     args.add_argument('--input_dim', default= 2, type=int,
                     help='dimension of input')
