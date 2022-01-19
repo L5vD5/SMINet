@@ -53,7 +53,7 @@ def main(args):
     # get outputPose.txt
     outputPose = np.array([]).reshape(-1,targetPose.shape[1])
     for input,_ in test_data_loader:
-        outputPose_temp,_ = model(input)
+        outputPose_temp,_,_ = model(input)
         outputPose_temp = outputPose_temp[:,:,0:3,3]
         outputPose_temp = outputPose_temp.reshape(-1,outputPose_temp.size()[1]*outputPose_temp.size()[2])
         outputPose_temp = outputPose_temp.detach().cpu().numpy()[0]
