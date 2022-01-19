@@ -32,9 +32,9 @@ def get_joint(PRset,joint,robot, Trackbool=False):
     ET.SubElement(robot,'link',name=childname)
 
     # set origin for joint
-    xyz = PRset.p_offset.squeeze(0).detach().cpu().tolist()
+    xyz = PRset.rev_p_offset.squeeze(0).detach().cpu().tolist()
     xyz = list2str(xyz)
-    rpy = PRset.rpy_offset.squeeze(0).detach().cpu().tolist()
+    rpy = PRset.rev_rpy_offset.squeeze(0).detach().cpu().tolist()
     rpy = list2str(rpy)
     ET.SubElement(revjoint, "origin", rpy=rpy, xyz=xyz)
     
@@ -60,12 +60,14 @@ def get_joint(PRset,joint,robot, Trackbool=False):
     ET.SubElement(robot,'link',name=childname)
 
     # set origin for joint
-    xyz = '0 0 0'
-    rpy = '0 0 0'
+    xyz = PRset.pri_p_offset.squeeze(0).detach().cpu().tolist()
+    xyz = list2str(xyz)
+    rpy = PRset.pri_rpy_offset.squeeze(0).detach().cpu().tolist()
+    rpy = list2str(rpy)
     ET.SubElement(prijoint, "origin", rpy=rpy, xyz=xyz)
     
     # set axis for joint
-    xyz = PRset.rev_axis.detach().cpu().tolist()
+    xyz = PRset.pri_axis.detach().cpu().tolist()
     xyz = list2str(xyz)
     ET.SubElement(prijoint,"axis",xyz=xyz)
 
@@ -111,7 +113,7 @@ def set_ground(robot):
 
 
 def main(args):
-    statedict = torch.load(args.data_path)
+    statedict = torch.load(args.checkpoint)
     weight = statedict['state_dict']
     input_dim = statedict['input_dim']
     branchNum = statedict['branchNum']
@@ -146,7 +148,7 @@ def main(args):
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description= 'save SMInet to urdf')
-    args.add_argument('--data_path', default= './output/temp/checkpoint_70.pth',type=str,
+    args.add_argument('--checkpoint', default= './output/0118/checkpoint_20.pth',type=str,
                     help='path to data')
     args.add_argument('--save_dir', default= './2Visualize/test_urdf.xml',type=str,
                     help='path to save')
