@@ -17,8 +17,16 @@ class PRjoint(nn.Module):
         self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
         
         if Trackbool:
-            self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-            self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            if torch.cuda.is_available():
+                device = torch.device('cuda:0')
+            else:
+                device = torch.device('cpu')
+            # self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            # self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            self.p_track = torch.zeros(1,3).to(device)
+            self.rpy_track = torch.zeros(1,3).to(device)
+            # self.p_track = torch.zeros(1,3)
+            # self.rpy_track = torch.zeros(1,3)
 
     def forward(self,rev_q, pri_q):
         batch_size = rev_q.size()[0]
