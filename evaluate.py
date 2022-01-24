@@ -9,6 +9,12 @@ from pathlib import Path
 def main(args):
     print("Processing...")
 
+    # set device:
+    if torch.cuda.is_available():
+        device = torch.device('cuda:0')
+    else:
+        device = torch.device('cpu')
+
     # make save_dir
     Path(args.save_dir).mkdir(parents=True, exist_ok=True)
 
@@ -20,8 +26,9 @@ def main(args):
     n_joint = len(branchLs)
 
     # load model
-    model = Model(branchLs, input_dim)
+    model = Model(branchNum, input_dim)
     model.load_state_dict(checkpoint['state_dict'])
+    model = model.to(device)
     model.eval()
 
     # load data
@@ -31,7 +38,7 @@ def main(args):
     revAngle = np.array([]).reshape(-1,n_joint)
     priAngle = np.array([]).reshape(-1,n_joint)
     for input,_ in test_data_loader:
-        
+        input = input.to(device)
         rev_q_value, pri_q_value = model.q_layer(input)
 
         rev_q_value = rev_q_value.detach().cpu().numpy()
@@ -53,6 +60,7 @@ def main(args):
     # get outputPose.txt
     outputPose = np.array([]).reshape(-1,targetPose.shape[1])
     for input,_ in test_data_loader:
+        input = input.to(device)
         outputPose_temp,_,_ = model(input)
         outputPose_temp = outputPose_temp[:,:,0:3,3]
         outputPose_temp = outputPose_temp.reshape(-1,outputPose_temp.size()[1]*outputPose_temp.size()[2])
@@ -67,7 +75,7 @@ if __name__ == '__main__':
     args.add_argument('--data_path', \
         default= './data/Multi_2dim_log_spiral/fold9/Multi_2dim_log_spiral_910.txt',type=str, \
             help='path to model checkpoint')    
-    args.add_argument('--checkpoint', default= './output/0118/checkpoint_20.pth',type=str,
+    args.add_argument('--checkpoint', default= './output/0121_1/checkpoint_50.pth',type=str,
                     help='path to model checkpoint')
     args.add_argument('--save_dir', default='./2Visualize')
     args = args.parse_args()
