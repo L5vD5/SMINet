@@ -156,7 +156,7 @@ def rodrigues(w,q,verbose = False):
 def bnum2ls(branchNum):
     branchLs = []
     for Num in branchNum:
-        for i in range(Num):
+        for i in range(int(Num)):
             branchLs.append(0)
         branchLs.append(1)
     
