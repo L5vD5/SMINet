@@ -119,7 +119,7 @@ def main(args):
     branchNum = statedict['branchNum']
     branchLs = bnum2ls(branchNum)
     
-    model = Model(branchLs, input_dim)
+    model = Model(branchNum, input_dim)
     model.load_state_dict(weight)
 
     # set robot urdf
