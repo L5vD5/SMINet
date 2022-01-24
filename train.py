@@ -30,6 +30,8 @@ def get_q_loss(rev_q_value,pri_q_value):
 def get_VecLoss(branchNum, TrackingSE3, RevSE3, PriSE3):
     batch_size = TrackingSE3.size()[0]
     device = TrackingSE3.device
+    branchLs = bnum2ls(branchNum)
+    nJoint = len(branchLs)
 
     Vec_loss = torch.tensor(0).to(torch.float).to(device)
     currJoint = 1
@@ -55,7 +57,8 @@ def get_VecLoss(branchNum, TrackingSE3, RevSE3, PriSE3):
 
             currJoint = currJoint + 1
     
-    return -Vec_loss
+    Vec_loss = (Vec_loss/batch_size)/nJoint
+    return Vec_loss
             
     
 def train_epoch(model, optimizer, input, label,Loss_Fn, args):
@@ -126,6 +129,9 @@ def main(args):
         weight = torch.load(args.resume_dir)
         model.load_state_dict(weight['state_dict'])
         print("loading successful!")
+    else:
+        print("Nothing to load, Starting from scratch")
+
     #set optimizer
     optimizer = torch.optim.Adam(model.parameters(),lr= args.lr, weight_decay=args.wd)
 
@@ -243,7 +249,7 @@ if __name__ == '__main__':
     #                 help='optimizer option')
     args.add_argument('--loss_function', default= 'Pos_norm2', type=str,
                     help='get list of loss function')
-    args.add_argument('--Vec_loss', default= 0.0001, type=float,
+    args.add_argument('--Vec_loss', default= 1, type=float,
                     help='Coefficient for TwistNorm')
     args.add_argument('--q_entropy', default= 0.01, type=float,
                     help='Coefficient for q_entropy')
@@ -256,7 +262,7 @@ if __name__ == '__main__':
     #                 help='number of n_Scence to early stop')
     args.add_argument('--save_period', default= 1, type=int,
                     help='number of scenes after which model is saved')
-    args.add_argument('--pname', default= 'SMINet',type=str,
+    args.add_argument('--pname', default= 'SMINetVec',type=str,
                     help='Project name')
     args.add_argument('--Foldstart', default= 0, type=int,
                     help='Number of Fold to start')
