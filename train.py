@@ -115,10 +115,13 @@ def main(args):
     if args.wandb:
         wandb.init(project = args.pname)
 
-    #set device
-    os.environ["CUDA_VISIBLE_DEVICES"]=args.device
-    device = torch.device('cuda:0')
-    torch.cuda.set_device(device)
+    if torch.cuda.is_available():
+        #set device
+        os.environ["CUDA_VISIBLE_DEVICES"]=args.device
+        device = torch.device('cuda:0')
+        torch.cuda.set_device(device)
+    else:
+        device = torch.device('cpu:0')
 
     #set model
     model = Model(args.branchNum, args.input_dim)
@@ -212,7 +215,7 @@ def main(args):
         # Log to wandb
         if args.wandb:
             wandb.log({'TrainLoss':train_loss, 'TestLoss':test_loss, 'TimePerEpoch':avg_time,
-            'avg_Pos_loss':avg_Pos_loss, 'q_entropy':avg_q_loss,'Vec_loss':avg_Vec_loss},step = epoch+1)
+            'avg_Pos_loss':avg_Pos_loss, 'q_entropy':avg_q_loss,'Normalized_Vec_loss':avg_Vec_loss/args.Vec_loss,'Vec_weight':args.Vec_loss},step = epoch+1)
 
         #save model 
         if (epoch+1) % args.save_period==0:
@@ -225,6 +228,9 @@ def main(args):
                 'input_dim':args.input_dim
             }
             torch.save(state, filename)
+
+        # schedule args.Vec_loss
+        # args.Vec_loss = args.Vec_loss * 0.99
 
 
 if __name__ == '__main__':
@@ -262,7 +268,7 @@ if __name__ == '__main__':
     #                 help='number of n_Scence to early stop')
     args.add_argument('--save_period', default= 1, type=int,
                     help='number of scenes after which model is saved')
-    args.add_argument('--pname', default= 'SMINetVec',type=str,
+    args.add_argument('--pname', default= 'SMINetLoss',type=str,
                     help='Project name')
     args.add_argument('--Foldstart', default= 0, type=int,
                     help='Number of Fold to start')
