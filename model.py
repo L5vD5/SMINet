@@ -21,12 +21,12 @@ class PRjoint(nn.Module):
                 device = torch.device('cuda:0')
             else:
                 device = torch.device('cpu')
-            # self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-            # self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-            self.p_track = torch.zeros(1,3).to(device)
-            self.rpy_track = torch.zeros(1,3).to(device)
-            # self.p_track = torch.zeros(1,3)
-            # self.rpy_track = torch.zeros(1,3)
+            # self.p_track = torch.zeros(1,3).to(device)
+            # self.rpy_track = torch.zeros(1,3).to(device)
+            
+            self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            
 
     def forward(self,rev_q, pri_q):
         batch_size = rev_q.size()[0]
@@ -103,40 +103,61 @@ class TransformLayer(nn.Module):
 
 
 class q_layer(nn.Module):
-    def __init__(self,branchLs,inputdim,n_layers=7):
+    def __init__(self,branchLs,inputdim,n_layers=4):
         super(q_layer, self).__init__()
         self.branchLs = branchLs
         n_joint = len(branchLs)
         
         LayerList = []
         for _ in range(n_layers):
-            layer = nn.Linear(inputdim,2*inputdim)
+            # set FC layer
+            layer = nn.Linear(inputdim,4*inputdim)
             torch.nn.init.xavier_uniform_(layer.weight)
-            LayerList.append(layer)
-            inputdim = inputdim * 2
 
-        for _ in range(n_layers-1):
+            # append FC layer
+            LayerList.append(layer)
+
+            # add bn layer
+            LayerList.append(torch.nn.BatchNorm1d(inputdim*4))
+
+            # add ac layer
+            LayerList.append(torch.nn.LeakyReLU())
+
+            # increse dim
+            inputdim = inputdim * 4
+
+        for _ in range(n_layers-2):
+            # set FC layer
             layer = nn.Linear(inputdim,inputdim//2)
             torch.nn.init.xavier_uniform_(layer.weight)
+
+            # append FC layer
             LayerList.append(layer)
+
+            # add bn layer
+            LayerList.append(torch.nn.BatchNorm1d(inputdim//2))
+            
+            # add ac layer
+            LayerList.append(torch.nn.LeakyReLU())
+
+            # reduce dim
             inputdim = inputdim // 2
 
         layer = nn.Linear(inputdim,2*n_joint)
         torch.nn.init.xavier_uniform_(layer.weight)
         LayerList.append(layer)
+        LayerList.append(torch.nn.LeakyReLU())
 
-        self.layers = torch.nn.ModuleList(LayerList)
+        self.layers = torch.nn.Sequential(*LayerList)
         
 
     def forward(self, motor_control):
         branchLs = self.branchLs
         n_joint = len(branchLs)
 
-        out =motor_control
+        out = motor_control
         
-        for layer in self.layers:
-            out = layer(out)
-            out = torch.nn.LeakyReLU()(out)
+        out = self.layers(out)
 
         rev_q_value = out[:,:n_joint]
         pri_q_value = out[:,n_joint:]
