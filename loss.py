@@ -9,10 +9,11 @@ def VecLoss(vec_tar,vec):
     vec_tar = vec_tar/ (vec_tar_norm.unsqueeze(1))
 
     # check dot product
-    res = vec * vec_tar
-    res = torch.sum(res)
+    loss = vec * vec_tar
+    loss = torch.sum(loss)
+    loss = -loss
     
-    return res
+    return loss
 
 def Pos_norm2(output, label):
     output = output[:,:,0:3,3]
