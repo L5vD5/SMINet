@@ -2,7 +2,7 @@
 import argparse
 import torch
 import numpy as np
-from dataloader import *
+from dataloaderImage2D import *
 from model import Model
 from loss import *
 import os
@@ -82,7 +82,7 @@ def train_epoch(model, optimizer, input, label,Loss_Fn, args):
     regularizer_loss = q_loss + Vec_loss
 
     # sum total loss
-    total_loss = Pos_loss + regularizer_loss
+    total_loss = Pos_loss# + regularizer_loss
     
     optimizer.zero_grad()
     total_loss.backward()
@@ -169,12 +169,12 @@ def main(args):
             input = input.to(device)
             label = label.to(device)
             Pos_loss,q_loss,Vec_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
-            total_loss = Pos_loss + q_loss + Vec_loss
+            total_loss = Pos_loss# + q_loss + Vec_loss
             train_loss = np.append(train_loss, total_loss.detach().cpu().numpy())
-            print('Epoch:{}, Pos_loss:{:.2f}, Progress:{:.2f}%'.format(epoch+1,Pos_loss,100*iterate/data_length), end='\r')
+            print('Epoch:{}, Pos_loss:{:.8f}, Progress:{:.2f}%'.format(epoch+1,Pos_loss,100*iterate/data_length), end='\r')
         
         train_loss = train_loss.mean()
-        print('TrainLoss:{:.2f}'.format(train_loss))
+        print('TrainLoss:{:.8f}'.format(train_loss))
         
         #Evaluate
         model.eval()
@@ -183,34 +183,34 @@ def main(args):
         avg_Pos_loss = np.array([])
         avg_q_loss = np.array([])
         avg_Vec_loss = np.array([])
-        for iterate, (input,label) in enumerate(test_data_loader):
-            input = input.to(device)
-            label = label.to(device)
-            Pos_loss,q_loss,Vec_loss = test_epoch(model, input, label, Loss_Fn, args)
-            total_loss = Pos_loss + q_loss + Vec_loss
+        # for iterate, (input,label) in enumerate(test_data_loader):
+        #     input = input.to(device)
+        #     label = label.to(device)
+        #     Pos_loss,q_loss,Vec_loss = test_epoch(model, input, label, Loss_Fn, args)
+        #     total_loss = Pos_loss# + q_loss + Vec_loss
 
-            # metric to plot
-            test_loss = np.append(test_loss, total_loss.detach().cpu().numpy())
-            avg_Pos_loss = np.append(avg_Pos_loss, Pos_loss.detach().cpu().numpy())
-            avg_q_loss = np.append(avg_q_loss, q_loss.detach().cpu().numpy())
-            avg_Vec_loss = np.append(avg_Vec_loss, Vec_loss.detach().cpu().numpy())
+        #     # metric to plot
+        #     test_loss = np.append(test_loss, total_loss.detach().cpu().numpy())
+        #     avg_Pos_loss = np.append(avg_Pos_loss, Pos_loss.detach().cpu().numpy())
+        #     avg_q_loss = np.append(avg_q_loss, q_loss.detach().cpu().numpy())
+        #     avg_Vec_loss = np.append(avg_Vec_loss, Vec_loss.detach().cpu().numpy())
             
-            print('Testing...{:.2f} Epoch:{}, Progress:{:.2f}%'.format(Pos_loss,epoch+1,100*iterate/data_length) , end='\r')
+        #     print('Testing...{:.8f} Epoch:{}, Progress:{:.2f}%'.format(Pos_loss,epoch+1,100*iterate/data_length) , end='\r')
         
-        test_loss = test_loss.mean()
-        avg_Pos_loss = avg_Pos_loss.mean()
-        avg_q_loss = avg_q_loss.mean()
-        avg_Vec_loss = avg_Vec_loss.mean()
-        print('TestLoss:{:.2f}'.format(test_loss))
+        # test_loss = test_loss.mean()
+        # avg_Pos_loss = avg_Pos_loss.mean()
+        # avg_q_loss = avg_q_loss.mean()
+        # avg_Vec_loss = avg_Vec_loss.mean()
+        # print('TestLoss:{:.8f}'.format(test_loss))
 
-        # Timer end    
+        # # Timer end    
         time_end = time.time()
         avg_time = time_end-time_start
-        eta_time = (args.epochs - epoch) * avg_time
-        h = int(eta_time //3600)
-        m = int((eta_time %3600)//60)
-        s = int((eta_time %60))
-        print("Epoch: {}, TestLoss:{:.2f}, eta:{}:{}:{}".format(epoch+1, test_loss, h,m,s))
+        # eta_time = (args.epochs - epoch) * avg_time
+        # h = int(eta_time //3600)
+        # m = int((eta_time %3600)//60)
+        # s = int((eta_time %60))
+        # print("Epoch: {}, TestLoss:{:.8f}, eta:{}:{}:{}".format(epoch+1, test_loss, h,m,s))
         
         # Log to wandb
         if args.wandb:
@@ -241,11 +241,11 @@ if __name__ == '__main__':
                     help='path to data')
     args.add_argument('--save_dir', default= './output/temp',type=str,
                     help='path to save model')
-    args.add_argument('--resume_dir', default= './output/',type=str,
+    args.add_argument('--resume_dir', default= './output/yb',type=str,
                     help='path to load model')
     args.add_argument('--device', default= '1',type=str,
                     help='device to use')
-    args.add_argument('--n_workers', default= 2, type=int,
+    args.add_argument('--n_workers', default=0, type=int,
                     help='number of data loading workers')
     args.add_argument('--wd', default= 0.001, type=float,
                     help='weight_decay for model layer')
@@ -274,7 +274,7 @@ if __name__ == '__main__':
                     help='Number of Fold to start')
     args.add_argument('--Foldend', default= 8, type=int,
                     help='Number of Fole to end')
-    args.add_argument("--branchNum", nargs="+", default= [3,3,3,3,3])
+    args.add_argument("--branchNum", nargs="+", default= [0,0,0,0,0,0,0,0,0,0])
     args = args.parse_args()
     main(args)
 #%%

@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python train.py --batch_size=1024 --data_path='./data/Multi_2dim_log_spiral' --save_dir='./output/0119_1/' --device='1' --epochs=50 --wandb --Foldstart=0 --Foldend=8
+python train.py --batch_size=128 --data_path='./data.npz' --save_dir='./output/yb' --device='1' --epochs=500 --wandb --Foldstart=0 --Foldend=8 --input_dim=3

@@ -1,6 +1,6 @@
 import torch
 from model import *
-from dataloader import *
+from dataloaderImage2D import *
 from utils.pyart import *
 import argparse
 import numpy as np
@@ -30,7 +30,7 @@ def main(args):
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
     model.eval()
-
+    print(model)
     # load data
     test_data_loader = ToyDataloader(args.data_path, n_workers = 1, batch = 1, shuffle=False)
 

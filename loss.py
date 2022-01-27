@@ -1,6 +1,6 @@
 #%%
 import torch
-
+import numpy as np
 def VecLoss(vec_tar,vec):
     vec_norm = torch.linalg.norm(vec,dim=1)
     vec = vec/ (vec_norm.unsqueeze(1))

@@ -8,24 +8,25 @@ class PRjoint(nn.Module):
     def __init__(self,Trackbool):
         super(PRjoint, self).__init__()
         self.Trackbool = Trackbool
-
-        self.rev_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-        self.rev_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-        self.pri_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-        self.pri_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-        self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
-        self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
+        from_ = -0.1
+        to_ = 0.1
+        self.rev_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
+        self.rev_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
+        self.pri_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
+        self.pri_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
+        self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(from_,to_))
+        self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(from_,to_))
         
         if Trackbool:
             if torch.cuda.is_available():
                 device = torch.device('cuda:0')
             else:
                 device = torch.device('cpu')
-            # self.p_track = torch.zeros(1,3).to(device)
-            # self.rpy_track = torch.zeros(1,3).to(device)
+            self.p_track = torch.zeros(1,3).to(device)
+            self.rpy_track = torch.zeros(1,3).to(device)
             
-            self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
-            self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            # self.p_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+            # self.rpy_track = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
             
 
     def forward(self,rev_q, pri_q):
@@ -103,16 +104,16 @@ class TransformLayer(nn.Module):
 
 
 class q_layer(nn.Module):
-    def __init__(self,branchLs,inputdim,n_layers=4):
+    def __init__(self,branchLs,inputdim,n_layers=5):
         super(q_layer, self).__init__()
         self.branchLs = branchLs
         n_joint = len(branchLs)
-        
         LayerList = []
         for _ in range(n_layers):
             # set FC layer
             layer = nn.Linear(inputdim,4*inputdim)
-            torch.nn.init.xavier_uniform_(layer.weight)
+            # torch.nn.init.xavier_uniform_(layer.weight)
+            torch.nn.init.normal_(layer.weight, std=0.1)
 
             # append FC layer
             LayerList.append(layer)
@@ -129,7 +130,8 @@ class q_layer(nn.Module):
         for _ in range(n_layers-2):
             # set FC layer
             layer = nn.Linear(inputdim,inputdim//2)
-            torch.nn.init.xavier_uniform_(layer.weight)
+            # torch.nn.init.xavier_uniform_(layer.weight)
+            torch.nn.init.normal_(layer.weight, std=0.1)
 
             # append FC layer
             LayerList.append(layer)
@@ -142,9 +144,27 @@ class q_layer(nn.Module):
 
             # reduce dim
             inputdim = inputdim // 2
-
         layer = nn.Linear(inputdim,2*n_joint)
-        torch.nn.init.xavier_uniform_(layer.weight)
+
+        # layer = nn.Linear(inputdim, 64)
+        # torch.nn.init.normal_(layer.weight, std=0.1)
+        # # torch.nn.init.xavier_uniform_(layer.weight)
+        # LayerList.append(layer)
+        # LayerList.append(torch.nn.LeakyReLU())
+        # layer = nn.Linear(64, 64)
+        # # torch.nn.init.xavier_uniform_(layer.weight)
+        # torch.nn.init.normal_(layer.weight, std=0.1)
+        # LayerList.append(layer)
+        # LayerList.append(torch.nn.LeakyReLU())
+        # layer = nn.Linear(64, 64)
+        # # torch.nn.init.xavier_uniform_(layer.weight)
+        # torch.nn.init.normal_(layer.weight, std=0.1)
+        # LayerList.append(layer)
+        # LayerList.append(torch.nn.LeakyReLU())
+
+        # # layer = nn.Linear(64,2*n_joint)
+        layer = nn.Linear(inputdim,2*n_joint)
+        torch.nn.init.normal_(layer.weight, std=0.1)
         LayerList.append(layer)
         LayerList.append(torch.nn.LeakyReLU())
 
@@ -154,9 +174,7 @@ class q_layer(nn.Module):
     def forward(self, motor_control):
         branchLs = self.branchLs
         n_joint = len(branchLs)
-
         out = motor_control
-        
         out = self.layers(out)
 
         rev_q_value = out[:,:n_joint]
