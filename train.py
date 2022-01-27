@@ -177,12 +177,12 @@ def main(args):
         print('TrainLoss:{:.8f}'.format(train_loss))
         
         #Evaluate
-        model.eval()
-        data_length = len(test_data_loader)
-        test_loss = np.array([])
-        avg_Pos_loss = np.array([])
-        avg_q_loss = np.array([])
-        avg_Vec_loss = np.array([])
+        # model.eval()
+        # data_length = len(test_data_loader)
+        # test_loss = np.array([])
+        # avg_Pos_loss = np.array([])
+        # avg_q_loss = np.array([])
+        # avg_Vec_loss = np.array([])
         # for iterate, (input,label) in enumerate(test_data_loader):
         #     input = input.to(device)
         #     label = label.to(device)
@@ -213,9 +213,9 @@ def main(args):
         # print("Epoch: {}, TestLoss:{:.8f}, eta:{}:{}:{}".format(epoch+1, test_loss, h,m,s))
         
         # Log to wandb
-        if args.wandb:
-            wandb.log({'TrainLoss':train_loss, 'TestLoss':test_loss, 'TimePerEpoch':avg_time,
-            'avg_Pos_loss':avg_Pos_loss, 'q_entropy':avg_q_loss,'Normalized_Vec_loss':avg_Vec_loss/args.Vec_loss,'Vec_weight':args.Vec_loss},step = epoch+1)
+        # if args.wandb:
+        #     wandb.log({'TrainLoss':train_loss, 'TestLoss':test_loss, 'TimePerEpoch':avg_time,
+        #     'avg_Pos_loss':avg_Pos_loss, 'q_entropy':avg_q_loss,'Normalized_Vec_loss':avg_Vec_loss/args.Vec_loss,'Vec_weight':args.Vec_loss},step = epoch+1)
 
         #save model 
         if (epoch+1) % args.save_period==0:
@@ -249,7 +249,7 @@ if __name__ == '__main__':
                     help='number of data loading workers')
     args.add_argument('--wd', default= 0.001, type=float,
                     help='weight_decay for model layer')
-    args.add_argument('--lr', default= 0.001, type=float,
+    args.add_argument('--lr', default= 0.005, type=float,
                     help='learning rate for model layer')
     # args.add_argument('--optim', default= 'adam',type=str,
     #                 help='optimizer option')
@@ -274,7 +274,7 @@ if __name__ == '__main__':
                     help='Number of Fold to start')
     args.add_argument('--Foldend', default= 8, type=int,
                     help='Number of Fole to end')
-    args.add_argument("--branchNum", nargs="+", default= [0,0,0,0,0,0,0,0,0,0])
+    args.add_argument("--branchNum", nargs="+", default= [0,0,0,0,0,0,0,0,0,0,0,0])
     args = args.parse_args()
     main(args)
 #%%

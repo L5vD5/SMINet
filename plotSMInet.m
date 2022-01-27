@@ -17,7 +17,7 @@ n_joint = length(branchLs);
 nData = length(priAngle);
 
 robot = 'test';
-fig_size = [-1,+1,-1,+1,-1,+1];
+fig_size = [-2000,+2000,-2000,+2000,-100,+100];
 chain = get_chain_from_urdf(robot,'urdf_path',urdf_path);
 schain = chain2schain(chain);
 
@@ -40,8 +40,8 @@ plot_traj(targetpose(:,19:21),'fig_idx',1,'subfig_idx',7,'tlc','b','tlw',1.5,'tl
 plot_traj(targetpose(:,22:24),'fig_idx',1,'subfig_idx',8,'tlc','b','tlw',1.5,'tls','-');
 plot_traj(targetpose(:,25:27),'fig_idx',1,'subfig_idx',9,'tlc','b','tlw',1.5,'tls','-');
 plot_traj(targetpose(:,28:30),'fig_idx',1,'subfig_idx',10,'tlc','b','tlw',1.5,'tls','-');
-% plot_traj(targetpose(:,31:33),'fig_idx',1,'subfig_idx',11,'tlc','b','tlw',1.5,'tls','-');
-% plot_traj(targetpose(:,34:36),'fig_idx',1,'subfig_idx',12,'tlc','b','tlw',1.5,'tls','-');
+plot_traj(targetpose(:,31:33),'fig_idx',1,'subfig_idx',11,'tlc','b','tlw',1.5,'tls','-');
+plot_traj(targetpose(:,34:36),'fig_idx',1,'subfig_idx',12,'tlc','b','tlw',1.5,'tls','-');
 
 
 tick = 0; run_mode = 'STOP'; j=1; max_j = nData; %268 
@@ -77,8 +77,8 @@ while 1
         plot_traj(output_p(2:end,22:24),'fig_idx',1,'subfig_idx',20,'tlc','r','tlw',1,'tls','--');
         plot_traj(output_p(2:end,25:27),'fig_idx',1,'subfig_idx',21,'tlc','r','tlw',1,'tls','--');
         plot_traj(output_p(2:end,28:30),'fig_idx',1,'subfig_idx',22,'tlc','r','tlw',1,'tls','--');
-%         plot_traj(output_p(2:end,31:33),'fig_idx',1,'subfig_idx',23,'tlc','r','tlw',1,'tls','--');
-%         plot_traj(output_p(2:end,34:36),'fig_idx',1,'subfig_idx',24,'tlc','r','tlw',1,'tls','--');
+        plot_traj(output_p(2:end,31:33),'fig_idx',1,'subfig_idx',23,'tlc','r','tlw',1,'tls','--');
+        plot_traj(output_p(2:end,34:36),'fig_idx',1,'subfig_idx',24,'tlc','r','tlw',1,'tls','--');
     else
         pause(1e-1);
     end

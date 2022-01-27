@@ -8,14 +8,14 @@ class PRjoint(nn.Module):
     def __init__(self,Trackbool):
         super(PRjoint, self).__init__()
         self.Trackbool = Trackbool
-        from_ = -0.1
-        to_ = 0.1
+        from_ = -100
+        to_ = 100
         self.rev_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
-        self.rev_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
+        self.rev_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
         self.pri_p_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
-        self.pri_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(from_,to_))
-        self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(from_,to_))
-        self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(from_,to_))
+        self.pri_rpy_offset = nn.Parameter(torch.Tensor(1,3).uniform_(-1,1))
+        self.rev_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
+        self.pri_axis = nn.Parameter(torch.Tensor(3).uniform_(-1,1))
         
         if Trackbool:
             if torch.cuda.is_available():
@@ -109,61 +109,61 @@ class q_layer(nn.Module):
         self.branchLs = branchLs
         n_joint = len(branchLs)
         LayerList = []
-        for _ in range(n_layers):
-            # set FC layer
-            layer = nn.Linear(inputdim,4*inputdim)
-            # torch.nn.init.xavier_uniform_(layer.weight)
-            torch.nn.init.normal_(layer.weight, std=0.1)
+        # for _ in range(n_layers):
+        #     # set FC layer
+        #     layer = nn.Linear(inputdim,4*inputdim)
+        #     # torch.nn.init.xavier_uniform_(layer.weight)
+        #     torch.nn.init.normal_(layer.weight, std=0.1)
 
-            # append FC layer
-            LayerList.append(layer)
+        #     # append FC layer
+        #     LayerList.append(layer)
 
-            # add bn layer
-            LayerList.append(torch.nn.BatchNorm1d(inputdim*4))
+        #     # add bn layer
+        #     LayerList.append(torch.nn.BatchNorm1d(inputdim*4))
 
-            # add ac layer
-            LayerList.append(torch.nn.LeakyReLU())
+        #     # add ac layer
+        #     LayerList.append(torch.nn.LeakyReLU())
 
-            # increse dim
-            inputdim = inputdim * 4
+        #     # increse dim
+        #     inputdim = inputdim * 4
 
-        for _ in range(n_layers-2):
-            # set FC layer
-            layer = nn.Linear(inputdim,inputdim//2)
-            # torch.nn.init.xavier_uniform_(layer.weight)
-            torch.nn.init.normal_(layer.weight, std=0.1)
+        # for _ in range(n_layers-2):
+        #     # set FC layer
+        #     layer = nn.Linear(inputdim,inputdim//2)
+        #     # torch.nn.init.xavier_uniform_(layer.weight)
+        #     torch.nn.init.normal_(layer.weight, std=0.1)
 
-            # append FC layer
-            LayerList.append(layer)
+        #     # append FC layer
+        #     LayerList.append(layer)
 
-            # add bn layer
-            LayerList.append(torch.nn.BatchNorm1d(inputdim//2))
+        #     # add bn layer
+        #     LayerList.append(torch.nn.BatchNorm1d(inputdim//2))
             
-            # add ac layer
-            LayerList.append(torch.nn.LeakyReLU())
+        #     # add ac layer
+        #     LayerList.append(torch.nn.LeakyReLU())
 
-            # reduce dim
-            inputdim = inputdim // 2
-        layer = nn.Linear(inputdim,2*n_joint)
+        #     # reduce dim
+        #     inputdim = inputdim // 2
+        # layer = nn.Linear(inputdim,2*n_joint)
 
-        # layer = nn.Linear(inputdim, 64)
-        # torch.nn.init.normal_(layer.weight, std=0.1)
-        # # torch.nn.init.xavier_uniform_(layer.weight)
-        # LayerList.append(layer)
-        # LayerList.append(torch.nn.LeakyReLU())
-        # layer = nn.Linear(64, 64)
-        # # torch.nn.init.xavier_uniform_(layer.weight)
-        # torch.nn.init.normal_(layer.weight, std=0.1)
-        # LayerList.append(layer)
-        # LayerList.append(torch.nn.LeakyReLU())
-        # layer = nn.Linear(64, 64)
-        # # torch.nn.init.xavier_uniform_(layer.weight)
-        # torch.nn.init.normal_(layer.weight, std=0.1)
-        # LayerList.append(layer)
-        # LayerList.append(torch.nn.LeakyReLU())
+        layer = nn.Linear(inputdim, 64)
+        torch.nn.init.normal_(layer.weight, std=0.1)
+        # torch.nn.init.xavier_uniform_(layer.weight)
+        LayerList.append(layer)
+        LayerList.append(torch.nn.LeakyReLU())
+        layer = nn.Linear(64, 64)
+        # torch.nn.init.xavier_uniform_(layer.weight)
+        torch.nn.init.normal_(layer.weight, std=0.1)
+        LayerList.append(layer)
+        LayerList.append(torch.nn.LeakyReLU())
+        layer = nn.Linear(64, 64)
+        # torch.nn.init.xavier_uniform_(layer.weight)
+        torch.nn.init.normal_(layer.weight, std=0.1)
+        LayerList.append(layer)
+        LayerList.append(torch.nn.LeakyReLU())
 
         # # layer = nn.Linear(64,2*n_joint)
-        layer = nn.Linear(inputdim,2*n_joint)
+        layer = nn.Linear(64,2*n_joint)
         torch.nn.init.normal_(layer.weight, std=0.1)
         LayerList.append(layer)
         LayerList.append(torch.nn.LeakyReLU())
