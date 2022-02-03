@@ -82,7 +82,7 @@ def train_epoch(model, optimizer, input, label,Loss_Fn, args):
     regularizer_loss = q_loss + Vec_loss
 
     # sum total loss
-    total_loss = Pos_loss# + regularizer_loss
+    total_loss = Pos_loss + regularizer_loss
     
     optimizer.zero_grad()
     total_loss.backward()
@@ -169,9 +169,9 @@ def main(args):
             input = input.to(device)
             label = label.to(device)
             Pos_loss,q_loss,Vec_loss = train_epoch(model, optimizer, input, label, Loss_Fn, args)
-            total_loss = Pos_loss# + q_loss + Vec_loss
+            total_loss = Pos_loss + q_loss + Vec_loss
             train_loss = np.append(train_loss, total_loss.detach().cpu().numpy())
-            print('Epoch:{}, Pos_loss:{:.8f}, Progress:{:.2f}%'.format(epoch+1,Pos_loss,100*iterate/data_length), end='\r')
+            print('Epoch:{}, Pos_loss:{:.8f}, Q_loss:{:.8f}, Vec_loss:{:.8f}, Progress:{:.2f}%'.format(epoch+1,Pos_loss,q_loss,Vec_loss,100*iterate/data_length), end='\r')
         
         train_loss = train_loss.mean()
         print('TrainLoss:{:.8f}'.format(train_loss))
