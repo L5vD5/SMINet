@@ -18,8 +18,9 @@ def VecLoss(vec_tar,vec):
 def Pos_norm2(output, label):
     output = output[:,:,0:3,3]
     output = output.reshape(-1,output.size()[1]*output.size()[2])
-    loss = torch.nn.MSELoss()(output,label)
 
+    loss = torch.sqrt(torch.nn.MSELoss()(output,label))
+    # print(output, label)
     return loss
 
 def q_entropy(q_value):

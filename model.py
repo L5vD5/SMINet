@@ -104,7 +104,7 @@ class TransformLayer(nn.Module):
 
 
 class q_layer(nn.Module):
-    def __init__(self,branchLs,inputdim,n_layers=5):
+    def __init__(self,branchLs,inputdim,n_layers=4):
         super(q_layer, self).__init__()
         self.branchLs = branchLs
         n_joint = len(branchLs)
