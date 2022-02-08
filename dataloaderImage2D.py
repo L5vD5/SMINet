@@ -19,10 +19,13 @@ class ToyDataset(Dataset):
                 self.input = torch.cat((self.input,torch.Tensor(rawdata[:,:3])),0)
         if os.path.isfile(data_path):
             file_path = data_path
+            # npz load
             rawdata = np.load(data_path)['arr_0']
-            # rawdata = np.insert(rawdata, (3,5,7,9,11,13,15,17,19,21,23,25), 0, axis=1)
-            self.label = torch.Tensor(rawdata[:,3:])
-            self.input = torch.Tensor(rawdata[:,:3])
+            # 2d -> 3d
+            rawdata = np.insert(rawdata, (3,5,7,9,11,13,15,17,19,21,23,25), 0, axis=1)
+            dof = 1
+            self.label = torch.Tensor(rawdata[:,dof:])
+            self.input = torch.Tensor(rawdata[:,:dof])
 
     def __len__(self):
         return len(self.input)
@@ -40,11 +43,13 @@ class FoldToyDataset(Dataset):
         self.label = torch.tensor([])
         self.input = torch.tensor([])
 
+        # npz load
         rawdata = np.load(data_path)['arr_0']
-        # print(rawdata.shape)
-        # rawdata = np.insert(rawdata, (3,5,7,9,11,13,15,17,19,21,23,25), 0, axis=1)
-        self.label = torch.cat((self.label,torch.Tensor(rawdata[:,3:])),0)
-        self.input = torch.cat((self.input,torch.Tensor(rawdata[:,:3])),0)
+        # 2d -> 3d
+        rawdata = np.insert(rawdata, (3,5,7,9,11,13,15,17,19,21,23,25), 0, axis=1)
+        dof = 1
+        self.label = torch.cat((self.label,torch.Tensor(rawdata[:,dof:])),0)
+        self.input = torch.cat((self.input,torch.Tensor(rawdata[:,:dof])),0)
 
     def __len__(self):
         return len(self.input)
