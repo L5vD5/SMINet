@@ -27,6 +27,8 @@ class ToyDataset(Dataset):
             self.label = torch.Tensor(rawdata[:,dof:])
             self.input = torch.Tensor(rawdata[:,:dof])
 
+            self.label /= 1000
+
     def __len__(self):
         return len(self.input)
     
@@ -50,6 +52,9 @@ class FoldToyDataset(Dataset):
         dof = 1
         self.label = torch.cat((self.label,torch.Tensor(rawdata[:,dof:])),0)
         self.input = torch.cat((self.input,torch.Tensor(rawdata[:,:dof])),0)
+
+        self.label /= 1000
+
         # self.scaler_label = MinMaxScaler()
         # self.scaler_label.fit(self.label)
         # self.label = self.scaler_label.transform(self.label)
